@@ -1,1 +1,125 @@
+import streamlit as st
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, AdaBoostClassifier
+from sklearn.svm import SVC
+
+# Page Config
+st.set_page_config(page_title="Heart Disease Risk Predictor", layout="centered")
+st.title("❤️ Heart Disease Risk Predictor")
+
+# --- Sidebar User Inputs ---
+st.sidebar.header("🩺 Patient Information")
+
+def get_user_input():
+    age = st.sidebar.slider("Age", 18, 100, 50)
+    sex = st.sidebar.selectbox("Sex", ("Male", "Female"))
+    cp = st.sidebar.selectbox("Chest Pain Type (cp)", [0, 1, 2, 3])
+    trestbps = st.sidebar.slider("Resting Blood Pressure", 80, 200, 120)
+    chol = st.sidebar.slider("Serum Cholesterol (mg/dl)", 100, 600, 240)
+    fbs = st.sidebar.radio("Fasting Blood Sugar > 120 mg/dl", [0, 1])
+    restecg = st.sidebar.selectbox("Rest ECG", [0, 1, 2])
+    thalach = st.sidebar.slider("Max Heart Rate Achieved", 70, 210, 150)
+    exang = st.sidebar.radio("Exercise Induced Angina", [0, 1])
+    oldpeak = st.sidebar.slider("ST Depression Induced", 0.0, 6.0, 1.0)
+    slope = st.sidebar.selectbox("Slope of Peak Exercise ST", [0, 1, 2])
+    ca = st.sidebar.selectbox("Number of Major Vessels (0-4)", [0, 1, 2, 3, 4])
+    thal = st.sidebar.selectbox("Thalassemia (0=Normal, 1=Fixed Defect, 2=Reversible)", [0, 1, 2])
+
+    sex_val = 1 if sex == "Male" else 0
+
+    data = {
+        'age': age,
+        'sex': sex_val,
+        'cp': cp,
+        'trestbps': trestbps,
+        'chol': chol,
+        'fbs': fbs,
+        'restecg': restecg,
+        'thalach': thalach,
+        'exang': exang,
+        'oldpeak': oldpeak,
+        'slope': slope,
+        'ca': ca,
+        'thal': thal
+    }
+
+    return pd.DataFrame([data])
+
+input_df = get_user_input()
+
+# --- Train Dummy Models ---
+def create_dummy_data():
+    np.random.seed(0)
+    X = np.random.randint(0, 100, size=(300, 13))
+    y = np.random.randint(0, 2, size=300)
+    return X, y
+
+X, y = create_dummy_data()
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+models = {
+    "Logistic Regression": LogisticRegression(),
+    "Random Forest": RandomForestClassifier(),
+    "Gradient Boosting": GradientBoostingClassifier(),
+    "AdaBoost": AdaBoostClassifier(),
+    "SVM": SVC(probability=True)
+}
+
+for m in models.values():
+    m.fit(X_scaled, y)
+
+# --- Prediction ---
+st.subheader("📋 Prediction Result")
+chosen_model_name = st.selectbox("Choose Model", list(models.keys()))
+model = models[chosen_model_name]
+
+input_scaled = scaler.transform(input_df)
+prediction = model.predict(input_scaled)[0]
+confidence = model.predict_proba(input_scaled)[0][1] if hasattr(model, "predict_proba") else None
+
+if prediction == 1:
+    st.error("⚠️ High Risk of Heart Disease!")
+else:
+    st.success("✅ Low Risk of Heart Disease")
+
+if confidence is not None:
+    st.info(f"Prediction Confidence: **{confidence*100:.2f}%**")
+
+# --- Bar Chart of User Inputs ---
+st.subheader("📊 Feature Input Overview")
+st.bar_chart(input_df.T.rename(columns={0: "Value"}))
+
+# --- Risk Simulation by Age ---
+st.subheader("🔮 Future Risk Simulation by Age")
+ages = list(range(input_df['age'][0], input_df['age'][0] + 10))
+risk_probs = []
+for a in ages:
+    df_temp = input_df.copy()
+    df_temp['age'] = a
+    scaled = scaler.transform(df_temp)
+    prob = model.predict_proba(scaled)[0][1] if hasattr(model, "predict_proba") else 0
+    risk_probs.append(prob)
+
+fig, ax = plt.subplots()
+ax.plot(ages, [r * 100 for r in risk_probs], marker='o', color='red')
+ax.set_xlabel("Age")
+ax.set_ylabel("Predicted Risk (%)")
+ax.set_title("📈 Risk Progression with Age")
+st.pyplot(fig)
+
+# --- Tips Section ---
+st.subheader("💡 Heart Health Tips")
+st.markdown("""
+- 🥗 Eat a healthy, balanced diet low in salt, sugar and saturated fat.
+- 🏃 Exercise regularly (at least 30 minutes/day).
+- 🚭 Avoid smoking and limit alcohol.
+- 🧘 Manage stress through relaxation or meditation.
+- 🩺 Monitor blood pressure, cholesterol and blood sugar regularly.
+- 💊 Take prescribed medications seriously and follow doctor's advice.
+""")
 
